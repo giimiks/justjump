@@ -22,7 +22,7 @@ def main():
       disp = pygame.display.set_mode(DISP_SIZE)
       gameClock = pygame.time.Clock()
 
-      pygame.image.load('assets/cube.png')
+      skyImage = pygame.image.load('assets/sky.png')
       cubeImage = pygame.image.load('assets/cube.png')
       groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
       groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
@@ -60,7 +60,7 @@ def main():
 
       
             #zobrazení všech elementů na obrazovku
-            disp.fill(BG_COLOR) #pozadí
+            sky = disp.blit(skyImage, (0,0)) #pozadí
             pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
             pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
             cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
