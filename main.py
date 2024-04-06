@@ -29,6 +29,7 @@ def main():
       cubeImage = pygame.image.load('assets/cube.png')
       groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
       groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
+      resButton = pygame.Rect(100,270,150,100)
 
       cubeX = DISP_SIZE[0]//3
       cubeY = GROUND_Y
@@ -39,8 +40,9 @@ def main():
       running = True
       held = False
       dead = False
+      resButton = pygame.Rect(100,270,150,100)  
       while running:
-            
+               
             #hra projde každý event při jedné herní smyčce
             for event in pygame.event.get():
                   if event.type == pygame.QUIT:
@@ -50,6 +52,11 @@ def main():
                         held = True
                   elif event.type == pygame.MOUSEBUTTONUP:
                         held = False
+                        pos = pygame.mouse.get_pos()
+                        if resButton.collidepoint(pos):
+                              obstX = DISP_SIZE[0]
+                              dead = False
+                              
             #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
             if not jumping:
                   if held:
@@ -64,10 +71,11 @@ def main():
                         jumping = False
                         cubeVelocity = 0
             if dead == False:
+                  resButton = pygame.Rect(0,0,0,0)
                   obstX -= 10
             if obstX < 0:
                   obstX = DISP_SIZE[0]
-                  
+            
             
             #zobrazení všech elementů na obrazovku
             if dead == False:
@@ -78,11 +86,13 @@ def main():
                   virus = disp.blit(pygame.transform.scale(virusImage, (64,64)), (obstX, GROUND_Y))
                   cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
             if cube.colliderect(virus):
+                  resButton = pygame.Rect(100,270,150,100)  
                   disp.fill(BG_COLOR)
                   text = font.render('Game over', True, (255,0,0))
+                  reset = pygame.draw.rect(disp, (0,255,255), resButton)
                   disp.blit(text, (DISP_SIZE[0]//2, DISP_SIZE[1]//2))
                   dead = True
-      
+
             pygame.display.update()
             gameClock.tick(FRAMERATE)
 
