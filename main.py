@@ -4,6 +4,7 @@
 #Lukáš Rada 8.A 2023/2024
 #Vytvořeno v pythonu s knihovnou pygame
 
+from random import randint
 import time
 
 import pygame
@@ -16,8 +17,9 @@ GND_COLOR = (56, 25, 2) #barva hlíny
 OVERLAY_GND_COLOR = (22, 145, 0) #barva trávy nad hlínou
 FRAMERATE = 60 #snímková frekvence (FPS)
 GROUND_Y = DISP_SIZE[1]-200 #podlaha, na které bude postava stát a skákat
-JUMP_HEIGHT = 100  # výška skoku
+JUMP_HEIGHT = 140  # výška skoku
 GRAVITY = 1.75  # gravitace
+
 
 
 #funkce main; pokud bych jinde importoval main.py, nespustí se mi hra znovu
@@ -29,7 +31,6 @@ def main():
       
       def game():
             score = 0
-
             pygame.font.init()
             inMenu = True
             
@@ -52,8 +53,18 @@ def main():
             held = False
             inMenu = False 
 
+            def obstacles():
+                  virusX = DISP_SIZE[0]
+                  verticalY = DISP_SIZE[1]
+                  virus = disp.blit(pygame.transform.scale(virusImage, (64,64)), (virusX, GROUND_Y))
+                  vertical = disp.blit(pygame.transform.scale(virusImage, (64,64)), (cubeX, verticalY))
+                  allObstacles = [(virus, virusX, 'h'), (vertical, verticalY, 'v')]
+                  randobst = randint(0,1)
+                  return allObstacles[randobst]
+
             #hlavní smyčka hry
             while running:
+                  obstacle = obstacles()
                   score+=1
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
@@ -87,10 +98,10 @@ def main():
                   sky = disp.blit(skyImage, (0,0)) #pozadí
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
-                  virus = disp.blit(pygame.transform.scale(virusImage, (64,64)), (obstX, GROUND_Y))
+                  
                   cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
 
-                  if cube.colliderect(virus):
+                  if cube.colliderect(obstacle):
                         running = False
                         mainMenu(score, True)
 
