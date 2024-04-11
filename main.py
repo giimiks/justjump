@@ -2,6 +2,9 @@
 #Téma: Postřehová hra pro dotykové tabule
 #Gymnázium Sokolov a KVC
 #Lukáš Rada 8.A 2023/2024
+#Vytvořeno v pythonu s knihovnou pygame
+
+import time
 
 import pygame
 
@@ -20,6 +23,7 @@ def main():
       #základní setup hry
       pygame.init()
       pygame.font.init()
+      inMenu = True
       disp = pygame.display.set_mode(DISP_SIZE)
       gameClock = pygame.time.Clock()
 
@@ -30,35 +34,42 @@ def main():
       groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
       groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
       resButton = pygame.Rect(100,270,150,100)
-
+      
       cubeX = DISP_SIZE[0]//3
-      cubeY = GROUND_Y
+      cubeY = GROUND_Y/1.5
       cubeVelocity = 0
-      jumping = False
+      jumping = True
       obstX = DISP_SIZE[0]
-      #hlavní smyčka hry
       running = True
       held = False
       dead = False
-      resButton = pygame.Rect(100,270,150,100)  
+      inMenu = False 
+
+      #hlavní smyčka hry
       while running:
-               
+            
             #hra projde každý event při jedné herní smyčce
             for event in pygame.event.get():
                   if event.type == pygame.QUIT:
                         running = False
                   #kontrola stisknutí a držení levého tlačítka na myši
-                  elif event.type == pygame.MOUSEBUTTONDOWN:
-                        held = True
-                  elif event.type == pygame.MOUSEBUTTONUP:
-                        held = False
+                  if not inMenu:
+                        if event.type == pygame.MOUSEBUTTONDOWN:
+                              held = True
+                        elif event.type == pygame.MOUSEBUTTONUP:
+                              held = False
+                  else:
+
                         pos = pygame.mouse.get_pos()
-                        if resButton.collidepoint(pos):
-                              obstX = DISP_SIZE[0]
+                        if event.type == pygame.MOUSEBUTTONUP and resButton.collidepoint(pos):
+                              obstX = DISP_SIZE[0] 
+                              time.sleep(0.5)
                               dead = False
+                              inMenu = False
+                              
                               
             #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
-            if not jumping:
+            if not jumping and cubeY == GROUND_Y:
                   if held:
                         jumping = True
                         cubeVelocity = -20
@@ -69,22 +80,22 @@ def main():
                   if cubeY >= GROUND_Y:
                         cubeY = GROUND_Y
                         jumping = False
-                        cubeVelocity = 0
-            if dead == False:
-                  resButton = pygame.Rect(0,0,0,0)
-                  obstX -= 10
+                        cubeVelocity = 0    
             if obstX < 0:
                   obstX = DISP_SIZE[0]
             
             
             #zobrazení všech elementů na obrazovku
-            if dead == False:
+            if not dead:
+                  resButton = pygame.Rect(0,0,0,0)
+                  obstX -= 10
                   sky = disp.blit(skyImage, (0,0)) #pozadí
                   
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
                   virus = disp.blit(pygame.transform.scale(virusImage, (64,64)), (obstX, GROUND_Y))
                   cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
+
             if cube.colliderect(virus):
                   resButton = pygame.Rect(100,270,150,100)  
                   disp.fill(BG_COLOR)
@@ -92,6 +103,7 @@ def main():
                   reset = pygame.draw.rect(disp, (0,255,255), resButton)
                   disp.blit(text, (DISP_SIZE[0]//2, DISP_SIZE[1]//2))
                   dead = True
+                  inMenu = True
 
             pygame.display.update()
             gameClock.tick(FRAMERATE)
