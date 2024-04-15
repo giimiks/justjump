@@ -21,66 +21,78 @@ JUMP_HEIGHT = 140  # výška skoku
 GRAVITY = 1.75  # gravitace
 
 
-
-#funkce main; pokud bych jinde importoval main.py, nespustí se mi hra znovu
+#funkce main; pokud bych jinde importoval main.py, 
+#nespustí se mi hra znovu
 def main():
       #základní setup hry
       pygame.init()
       
       disp = pygame.display.set_mode(DISP_SIZE)
-      
+      virusImage = pygame.image.load('assets/virus.png')
+      skyImage = pygame.image.load('assets/sky.png')
+      cubeImage = pygame.image.load('assets/cube.png')
+      shieldImage = pygame.image.load('assets/shield.png')
       def game():
-            score = 0
-            pygame.font.init()
-            inMenu = True
             
+            pygame.font.init()
             gameClock = pygame.time.Clock()
 
-            font = pygame.font.SysFont('Comic Sans MS', 40)
-            virusImage = pygame.image.load('assets/virus.png')
-            skyImage = pygame.image.load('assets/sky.png')
-            cubeImage = pygame.image.load('assets/cube.png')
+            #proměnné pro překážky
+            obstacles = [] #seznam překážek
+            lastSpawnTime = time.time()
+            spawnRate = 5
+            score = 0
+
+
+            
             groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
             groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
-            resButton = pygame.Rect(100,270,150,100)
-            
+            shieldBtnRect = pygame.Rect(40,DISP_SIZE[1]-140, 100,80)
+            shieldX, shieldY = -1000,-1000
             cubeX = DISP_SIZE[0]//3
             cubeY = GROUND_Y/1.5
             cubeVelocity = 0
             jumping = True
-            obstX = DISP_SIZE[0]
             running = True
             held = False
-            inMenu = False 
-
-            def obstacles():
-                  virusX = DISP_SIZE[0]
-                  verticalY = DISP_SIZE[1]
-                  virus = disp.blit(pygame.transform.scale(virusImage, (64,64)), (virusX, GROUND_Y))
-                  vertical = disp.blit(pygame.transform.scale(virusImage, (64,64)), (cubeX, verticalY))
-                  allObstacles = [(virus, virusX, 'h'), (vertical, verticalY, 'v')]
-                  randobst = randint(0,1)
-                  return allObstacles[randobst]
-
+            shielded = False
+            lastShieldTime = 0
             #hlavní smyčka hry
             while running:
-                  obstacle = obstacles()
                   score+=1
+                  currentTime = time.time()
+                  dt = currentTime - lastSpawnTime
+                  if lastShieldTime + 0.75 < currentTime:
+                        shielded = False
+                  spawnRate = max(1,2-score/500)
+
+                  if dt > spawnRate:
+                        lastSpawnTime = currentTime
+                        spawnObstacle(obstacles)
+                  
+                  updateObstacles(obstacles)
+
+                 
+
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                               running = False
                         #kontrola stisknutí a držení levého tlačítka na myši
-                        if event.type == pygame.MOUSEBUTTONDOWN:
-                                    held = True
+                        if event.type == pygame.MOUSEBUTTONDOWN and not shieldBtnRect.collidepoint(pygame.mouse.get_pos()):
+                                          held = True
                         elif event.type == pygame.MOUSEBUTTONUP:
+                                    if shieldBtnRect.collidepoint(pygame.mouse.get_pos()):
+                                          
+                                          print(currentTime - lastShieldTime)
+                                          if not shielded:
+                                                lastShieldTime = currentTime
+                                                shielded = True
                                     held = False
-            
                   #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
-                  if not jumping and cubeY == GROUND_Y:
-                        if held:
-                              jumping = True
-                              cubeVelocity = -20
+                  if not jumping and cubeY == GROUND_Y and held:
+                        jumping = True
+                        cubeVelocity = -20
                   if jumping:
                         cubeY += cubeVelocity
                         cubeVelocity += GRAVITY
@@ -89,22 +101,24 @@ def main():
                               cubeY = GROUND_Y
                               jumping = False
                               cubeVelocity = 0    
-                  if obstX < 0:
-                        obstX = DISP_SIZE[0]
                   
-                  
+                  shieldX, shieldY = cubeX-16, cubeY-16
                   #zobrazení všech elementů na obrazovku
-                  obstX -= 10
                   sky = disp.blit(skyImage, (0,0)) #pozadí
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
-                  
+
                   cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
-
-                  if cube.colliderect(obstacle):
-                        running = False
-                        mainMenu(score, True)
-
+                  if shielded: 
+                        shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (shieldX,shieldY))
+                  else:
+                        pygame.draw.rect(disp, (240,0,0), shieldBtnRect)
+                        shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (-10000,-10000))
+                  for obstacle in obstacles:
+                        disp.blit(pygame.transform.scale(virusImage, (64,64)), obstacle['rect'])
+                        print(obstacle['type'])
+                  checkShield(shieldBlit, obstacles)
+                  checkCollision(cube, obstacles, score)
                   pygame.display.update()
                   gameClock.tick(FRAMERATE)
             pygame.quit()
@@ -116,7 +130,39 @@ def main():
             menu.add.button('Play', game)
             menu.add.button('Quit', pygame_menu.events.EXIT)
             menu.mainloop(disp)
-            
+
+      def spawnObstacle(obstacles: list):
+            spawnPos = randint(0,2) #0 nahoře, 1, vlevo, 2 vpravo
+            if spawnPos == 0:
+                  obstRect = pygame.Rect(720//3, -50, 50, 50)
+                  obstacles.append({'rect': obstRect, 'speed': 10, 'type': 'top'})
+            elif spawnPos == 1:
+                  obstRect = pygame.Rect(-50, 340, 50, 50)
+                  obstacles.append({'rect': obstRect, 'speed': 10, 'type': 'right'})
+            elif spawnPos == 2:
+                  obstRect = pygame.Rect(720, 340, 50, 50)
+                  obstacles.append({'rect': obstRect, 'speed': -10, 'type': 'left'})
+      
+      def updateObstacles(obstacles):
+            for obstacle in obstacles:
+                  print("After update: rect.left:", obstacle['rect'].left, "speed:", obstacle['speed'])
+                  if obstacle['type'] == 'left' or obstacle['type'] == 'right':
+                        obstacle['rect'].move_ip(obstacle['speed'], 0)
+                  elif obstacle['type'] == 'top':
+                        obstacle['rect'].move_ip(0, obstacle['speed'])
+                  if obstacle['rect'].right < 0 or obstacle['rect'].left > DISP_SIZE[0] or obstacle['rect'].top > 540:
+                        obstacles.remove(obstacle)
+
+      def checkCollision(player, obstacles, score):
+            for obstacle in obstacles:
+                  if player.colliderect(obstacle['rect']):
+                        mainMenu(score, death=True)
+
+      def checkShield(shield, obstacles):
+            for obstacle in obstacles:
+                  if obstacle['type'] == 'top' and shield.colliderect(obstacle['rect']):
+                        obstacles.remove(obstacle)
+
       mainMenu()
 
 
