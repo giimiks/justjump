@@ -89,6 +89,12 @@ def main():
                                                 lastShieldTime = currentTime
                                                 shielded = True
                                     held = False
+                        elif pygame.key.get_pressed()[pygame.K_e]:
+                              if not shielded:
+                                                lastShieldTime = currentTime
+                                                shielded = True
+                        elif pygame.key.get_pressed()[pygame.K_ESCAPE]:
+                              mainMenu(score, death=False)
                   #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
                   if not jumping and cubeY == GROUND_Y and held:
                         jumping = True
@@ -116,7 +122,6 @@ def main():
                         shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (-10000,-10000))
                   for obstacle in obstacles:
                         disp.blit(pygame.transform.scale(virusImage, (64,64)), obstacle['rect'])
-                        print(obstacle['type'])
                   checkShield(shieldBlit, obstacles)
                   checkCollision(cube, obstacles, score)
                   pygame.display.update()
@@ -145,7 +150,6 @@ def main():
       
       def updateObstacles(obstacles):
             for obstacle in obstacles:
-                  print("After update: rect.left:", obstacle['rect'].left, "speed:", obstacle['speed'])
                   if obstacle['type'] == 'left' or obstacle['type'] == 'right':
                         obstacle['rect'].move_ip(obstacle['speed'], 0)
                   elif obstacle['type'] == 'top':
