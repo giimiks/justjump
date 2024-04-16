@@ -21,7 +21,6 @@ JUMP_HEIGHT = 140  # výška skoku
 GRAVITY = 1.75  # gravitace
 
 
-
 #funkce main; pokud bych jinde importoval main.py, 
 #nespustí se mi hra znovu
 def main():
@@ -29,6 +28,8 @@ def main():
       pygame.init()
       
       disp = pygame.display.set_mode(DISP_SIZE)
+
+      #načtení textur, příprava fontů
       virusImage = pygame.image.load('assets/virus.png')
       skyImage = pygame.image.load('assets/sky.png')
       cubeImage = pygame.image.load('assets/cube.png')
@@ -44,7 +45,7 @@ def main():
             obstacles = [] #seznam překážek
             lastSpawnTime = time.time()
             spawnRate = 5
-            score = 5000
+            score = 0
       
 
             
@@ -63,23 +64,22 @@ def main():
             lastShieldTime = 0
             #hlavní smyčka hry
             while running:
-                  #print(shieldAble)
+                  #skóre je jeden snímek hry
                   score+=1
                   currentTime = time.time()
-                  dt = currentTime - lastSpawnTime
-                  shieldX, shieldY = cubeX-16, cubeY-16
-                  if lastShieldTime + 0.75 < currentTime:
+                  dt = currentTime - lastSpawnTime #lastSpawnTime využívám pro spawnování obstacles
+                  shieldX, shieldY = cubeX-16, cubeY-16 #štít má větší texturu než hráč, je potřeba jej odsadit o 16px neboť je o 32px větší
+                  if lastShieldTime + 0.75 < currentTime: #štít trvá pouze 750ms, poté zmizí
                         shielded = False
-                        shieldX, shieldY = -1000,-1000
-                  spawnRate = max(1,2-score/500)
+                        shieldX, shieldY = -1000,-1000 #hitbox štítu přesunu mimo obrazovku, aby nefungoval, i když není viditelný
+                  spawnRate = max(1,2-score/500) #výpočet lineárně zvyšujícího se spawnratu pro spawnování obstacles, aby hra byla progresivně těžší
 
-                  if dt > spawnRate:
+                  if dt > spawnRate: #po uplynutí spawnrate času se spawne obstacle
                         lastSpawnTime = currentTime
                         spawnObstacle(obstacles, score)
                   
+                  #pohyb překážek
                   updateObstacles(obstacles, score)
-
-                 
 
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
@@ -89,14 +89,14 @@ def main():
                         if event.type == pygame.MOUSEBUTTONDOWN and not shieldBtnRect.collidepoint(pygame.mouse.get_pos()):
                                           held = True
                         elif event.type == pygame.MOUSEBUTTONUP:
+                                    #funkcionalita šítu
                                     if shieldBtnRect.collidepoint(pygame.mouse.get_pos()):
-                                          
-                                          print(currentTime - lastShieldTime)
-                                          if not shielded and shieldAble:
+                                          if not shielded and shieldAble: #shielded kontroluje, zdali mám aktivní štít, shieldAble, zdali mám nabitý štít z kolize s padající překážkou
                                                 lastShieldTime = currentTime
                                                 shielded = True
                                                 shieldAble = False
                                     held = False
+                        #stisk shield tlačítka na klávesnici pro debug
                         elif pygame.key.get_pressed()[pygame.K_e]:
                               if not shielded and shieldAble:
                                                 lastShieldTime = currentTime
@@ -125,24 +125,29 @@ def main():
 
                   cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
                   if shielded: 
-                        shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (shieldX,shieldY))
+                        shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (shieldX,shieldY)) #štít
                   else:
-                        if shieldAble:
+                        if shieldAble: #pokud je postava zaštítitelná, štít se přesune mimo obrazovku a tlačítko pro použití štítu se vyrenderuje
                               pygame.draw.rect(disp, (240,0,0), shieldBtnRect)
                               shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (-10000,-10000))
+                  #renderování překážek
                   for obstacle in obstacles:
+                        #překážky se spawnují jedna za druhou, jsou ale dvojité překážky
                         if not (type(obstacle) is list):
                               disp.blit(pygame.transform.scale(virusImage, (64,64)), obstacle['rect'])
                         else:
                               for ob in obstacle:
                                     disp.blit(pygame.transform.scale(virusImage, (64,64)), ob['rect'])
+                  #render skóre
                   showsScore = scoreFont.render("Score: " + str(score), True, (255, 255, 255))
                   disp.blit(showsScore, (DISP_SIZE[0]/2, 50))
+                  #kontrola kolize s překážkou a zaštítovatelnosti
                   shieldAble = checkShield(shieldBlit, obstacles, shieldAble, shielded)
                   checkCollision(cube, obstacles, score)
                   pygame.display.update()
                   gameClock.tick(FRAMERATE)
             pygame.quit()
+      #hlavní menu vytvořené pomocí knihovny pygame_menu
       def mainMenu(score=0, death=False):
             menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=pygame_menu.themes.THEME_BLUE)
             if death:
@@ -152,20 +157,20 @@ def main():
             menu.add.button('Quit', pygame_menu.events.EXIT)
             menu.mainloop(disp)
 
-      def spawnObstacle(obstacles: list, score: int):
-            spawnPos = randint(0,2) #0 nahoře, 1, vlevo, 2 vpravo
+      #spawnování překážek
+      def spawnObstacle(obstacles: list, score: int): #obstacles je dvoudimenzionální seznam objektů
+            spawnPos = randint(0,2) #0 zeshora, 1, zleva, 2 zprava
+            #počet překážek v z jedné strany
             spawnNum = 1
-            if score > 5000:
+            if score > 3000:
                   spawnNum = 2
             if spawnPos == 0:
                   obstRect = pygame.Rect(720//3, -50, 50, 50)
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'top'}])
-                  print(obstacles)
             elif spawnPos == 1:
                   
                   obstRect = pygame.Rect(-100, 340, 50, 50)
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'left'}])
-                  print(obstacles)
             elif spawnPos == 2:
                   if spawnNum != 2:
                         obstRect = pygame.Rect(720, 340, 50, 50)
@@ -175,10 +180,8 @@ def main():
                         obstRect = pygame.Rect(720, 340, 50, 50)
                         obstRect2 = pygame.Rect(770, 340, 50, 50)
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'},{'rect': obstRect2, 'speed': -10, 'type': 'right'}])
-                  print(obstacles)
-
-                  
       
+      #pohyb překážek
       def updateObstacles(obstacles, score):
             for obstacle in obstacles:
                   if obstacle[0]['type'] == 'left':
