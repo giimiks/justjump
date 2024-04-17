@@ -33,11 +33,14 @@ def main():
 
       #načtení textur, příprava fontů
       virusImage = pygame.image.load('assets/virus.png')
-      skyImage = pygame.image.load('assets/sky.png')
+      skyImages = [pygame.image.load('assets/sky.png'),pygame.image.load('assets/sky2.png'),pygame.image.load('assets/sky3.png'),pygame.image.load('assets/sky4.png')]
       cubeImage = pygame.image.load('assets/cube.png')
       superchargedImage = pygame.image.load('assets/supercharged.png')
       shieldImage = pygame.image.load('assets/shield.png')
+      chargeBtnImage = pygame.image.load('assets/chargebtn.png')
+      shieldBtnImage = pygame.image.load('assets/shieldbtn.png')
       scoreFont = pygame.font.SysFont('Arial', 30)
+      
 
       theme = pygame_menu.Theme(background_color=(0,170,210,255),
             title_background_color=(0,0,0,0),
@@ -66,7 +69,7 @@ def main():
             groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
             shieldBtnRect = pygame.Rect(40,DISP_SIZE[1]-140, 100,80)
             superChargeBtnRect = pygame.Rect(DISP_SIZE[0]-140,DISP_SIZE[1]-140, 100,80)
-            
+
             shieldX, shieldY = -1000,-1000
             cubeX = DISP_SIZE[0]//3
             cubeY = GROUND_Y/1.5
@@ -95,7 +98,7 @@ def main():
                   if lastShieldTime + 0.75 < currentTime: #štít trvá pouze 750ms, poté zmizí
                         shielded = False
                         shieldX, shieldY = -1000,-1000 #hitbox štítu přesunu mimo obrazovku, aby nefungoval, i když není viditelný
-                  if lastChargedTime + 3 < currentTime:
+                  if lastChargedTime + 0.75 < currentTime:
                         charged = False
                   spawnRate = max(1,2-score/500) #výpočet lineárně zvyšujícího se spawnratu pro spawnování obstacles, aby hra byla progresivně těžší
 
@@ -154,7 +157,14 @@ def main():
                   
                   
                   #zobrazení všech elementů na obrazovku
-                  sky = disp.blit(skyImage, (0,0)) #pozadí
+                  if score//600 == 0:
+                        sky = disp.blit(skyImages[0], (0,0)) #pozadí
+                  if score//600== 1:
+                        sky = disp.blit(skyImages[1], (0,0))
+                  if score//600 == 2:
+                        sky = disp.blit(skyImages[2], (0,0))
+                  if score//600 >= 3:
+                        sky = disp.blit(skyImages[3], (0,0))
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
                   if not charged:
