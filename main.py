@@ -4,8 +4,8 @@
 #Lukáš Rada 8.A 2023/2024
 #Vytvořeno v pythonu s knihovnou pygame
 
-from random import randint
 import time
+from random import randint
 
 import pygame
 import pygame_menu
@@ -20,48 +20,71 @@ GROUND_Y = DISP_SIZE[1]-200 #podlaha, na které bude postava stát a skákat
 JUMP_HEIGHT = 140  # výška skoku
 GRAVITY = 1.75  # gravitace
 
+score = 0
 
 #funkce main; pokud bych jinde importoval main.py, 
 #nespustí se mi hra znovu
 def main():
+      
       #základní setup hry
       pygame.init()
-      
+      pygame.font.init()
       disp = pygame.display.set_mode(DISP_SIZE)
 
       #načtení textur, příprava fontů
       virusImage = pygame.image.load('assets/virus.png')
       skyImage = pygame.image.load('assets/sky.png')
       cubeImage = pygame.image.load('assets/cube.png')
+      superchargedImage = pygame.image.load('assets/supercharged.png')
       shieldImage = pygame.image.load('assets/shield.png')
       scoreFont = pygame.font.SysFont('Arial', 30)
 
+      theme = pygame_menu.Theme(background_color=(0,170,210,255),
+            title_background_color=(0,0,0,0),
+            title_font=pygame.font.Font('./assets/BaksoSapi.otf', 100),
+            title_font_shadow=True,
+            title_offset=(90,0),
+            widget_alignment=pygame_menu.locals.ALIGN_CENTER,
+            widget_font=pygame.font.SysFont('Comic Sans MS', 40)
+            )
+
+      
+
       def game():
+            global score
+            score = 0
             
-            pygame.font.init()
             gameClock = pygame.time.Clock()
 
             #proměnné pro překážky
             obstacles = [] #seznam překážek
             lastSpawnTime = time.time()
             spawnRate = 5
-            score = 0
       
-
-            
+            #podlaha
             groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
             groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
             shieldBtnRect = pygame.Rect(40,DISP_SIZE[1]-140, 100,80)
+            superChargeBtnRect = pygame.Rect(DISP_SIZE[0]-140,DISP_SIZE[1]-140, 100,80)
+            
             shieldX, shieldY = -1000,-1000
             cubeX = DISP_SIZE[0]//3
             cubeY = GROUND_Y/1.5
+
             cubeVelocity = 0
             jumping = True
             running = True
             held = False
+
             shielded = False
             shieldAble = True
             lastShieldTime = 0
+
+            superCharge = 0
+            charged = False
+            lastChargedTime = 0
+            chargesNeeded = 4
+
             #hlavní smyčka hry
             while running:
                   #skóre je jeden snímek hry
@@ -72,6 +95,8 @@ def main():
                   if lastShieldTime + 0.75 < currentTime: #štít trvá pouze 750ms, poté zmizí
                         shielded = False
                         shieldX, shieldY = -1000,-1000 #hitbox štítu přesunu mimo obrazovku, aby nefungoval, i když není viditelný
+                  if lastChargedTime + 3 < currentTime:
+                        charged = False
                   spawnRate = max(1,2-score/500) #výpočet lineárně zvyšujícího se spawnratu pro spawnování obstacles, aby hra byla progresivně těžší
 
                   if dt > spawnRate: #po uplynutí spawnrate času se spawne obstacle
@@ -95,6 +120,11 @@ def main():
                                                 lastShieldTime = currentTime
                                                 shielded = True
                                                 shieldAble = False
+                                    elif superChargeBtnRect.collidepoint(pygame.mouse.get_pos()):
+                                          if superCharge >= chargesNeeded:
+                                                lastChargedTime = currentTime
+                                                charged = True
+                                                superCharge = 0
                                     held = False
                         #stisk shield tlačítka na klávesnici pro debug
                         elif pygame.key.get_pressed()[pygame.K_e]:
@@ -102,8 +132,13 @@ def main():
                                                 lastShieldTime = currentTime
                                                 shielded = True
                                                 shieldAble = False
+                        elif pygame.key.get_pressed()[pygame.K_w]:
+                              if superCharge >= chargesNeeded:
+                                                lastChargedTime = currentTime
+                                                charged = True
+                                                superCharge = 0
                         elif pygame.key.get_pressed()[pygame.K_ESCAPE]:
-                              mainMenu(score, death=False)
+                              mainMenu()
                   #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
                   if not jumping and cubeY == GROUND_Y and held:
                         jumping = True
@@ -122,12 +157,17 @@ def main():
                   sky = disp.blit(skyImage, (0,0)) #pozadí
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
-
-                  cube = disp.blit(cubeImage, (cubeX,cubeY)) #hráčova postava
+                  if not charged:
+                        cube = disp.blit(cubeImage, (cubeX,cubeY))
+                         #hráčova postava
+                  else: 
+                        cube = disp.blit(superchargedImage, (cubeX,cubeY))
+                  if superCharge >= chargesNeeded:
+                        pygame.draw.rect(disp, (0,0,255), superChargeBtnRect)
                   if shielded: 
                         shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (shieldX,shieldY)) #štít
                   else:
-                        if shieldAble: #pokud je postava zaštítitelná, štít se přesune mimo obrazovku a tlačítko pro použití štítu se vyrenderuje
+                        if shieldAble and not charged: #pokud je postava zaštítitelná, štít se přesune mimo obrazovku a tlačítko pro použití štítu se vyrenderuje
                               pygame.draw.rect(disp, (240,0,0), shieldBtnRect)
                               shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (-10000,-10000))
                   #renderování překážek
@@ -142,20 +182,46 @@ def main():
                   showsScore = scoreFont.render("Score: " + str(score), True, (255, 255, 255))
                   disp.blit(showsScore, (DISP_SIZE[0]/2, 50))
                   #kontrola kolize s překážkou a zaštítovatelnosti
-                  shieldAble = checkShield(shieldBlit, obstacles, shieldAble, shielded)
-                  checkCollision(cube, obstacles, score)
+                  shieldCheck = checkShield(shieldBlit, obstacles, shieldAble, shielded)
+                  shieldAble = shieldCheck[0]
+                  superCharge+=shieldCheck[1]
+                        
+                  checkCollision(cube, obstacles, charged)
                   pygame.display.update()
                   gameClock.tick(FRAMERATE)
             pygame.quit()
+
+      def saveScore():
+            f = open('./assets/.sa', 'a+')
+            savedScore = int(f.read()) if f.read() != '' else 0
+            if savedScore < score:
+                  f.close()
+                  f = open('./assets/.sa', 'w')
+                  f.seek(0)
+                  f.write(str(score))
+                  f.truncate()
+            f.close()
+            mainMenu()
       #hlavní menu vytvořené pomocí knihovny pygame_menu
-      def mainMenu(score=0, death=False):
-            menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=pygame_menu.themes.THEME_BLUE)
-            if death:
-                  menu.add.label(f'You died!')
-            menu.add.label(f'Score: {score}')
+      def mainMenu():
+            f = open('./assets/.sa', 'r')
+            highScore = f.read()
+            menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=theme)
+            menu.add.label('High Score')
+            menu.add.label(highScore)
             menu.add.button('Play', game)
             menu.add.button('Quit', pygame_menu.events.EXIT)
             menu.mainloop(disp)
+      
+      def deathMenu():
+            menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=theme)
+            menu.add.label(f'You died!')
+            menu.add.label(f'Score: {score}')
+            menu.add.button(f'Main Menu', saveScore)
+            menu.mainloop(disp)
+
+            
+
 
       #spawnování překážek
       def spawnObstacle(obstacles: list, score: int): #obstacles je dvoudimenzionální seznam objektů
@@ -190,7 +256,6 @@ def main():
                         obstacle[0]['rect'].move_ip(obstacle[0]['speed']-score/1000, 0)
                         if len(obstacle) == 2:
                               obstacle[1]['rect'].move_ip(obstacle[0]['speed']-score/1000, 0)
-                        
                   elif obstacle[0]['type'] == 'top':
                         obstacle[0]['rect'].move_ip(0, obstacle[0]['speed']+score/1000)
                   if (obstacle[0]['type'] == 'left' and  obstacle[0]['rect'].left > DISP_SIZE[0] )or (obstacle[0]['type'] == 'right' and obstacle[0]['rect'].left < 0) or obstacle[0]['rect'].top > 540:
@@ -200,26 +265,22 @@ def main():
                               else:
                                     obstacles.remove(obstacle)
 
-      def checkCollision(player, obstacles, score):
+      def checkCollision(player, obstacles, charged):
             for obstacle in obstacles:
-                  if player.colliderect(obstacle[0]['rect']):
-                        mainMenu(score, death=True)
+                  if player.colliderect(obstacle[0]['rect']) and not charged:
+                        deathMenu()
                   if len(obstacle) == 2:
-                        if player.colliderect(obstacle[1]['rect']):
-                              mainMenu(score, death=True)
+                        if player.colliderect(obstacle[1]['rect']) and not charged:
+                              deathMenu()
 
       def checkShield(shield, obstacles, shieldable, shielded):
             for obstacle in obstacles:
                   if obstacle[0]['type'] == 'top' and shield.colliderect(obstacle[0]['rect']) and shielded:
                         obstacles.remove(obstacle)
-                        
-                        return True
-            return shieldable
+                        return (True,1)
+            return (shieldable,0)
 
       mainMenu()
-
-
-
 
 if __name__ == '__main__':
       main()
