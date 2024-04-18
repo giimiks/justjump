@@ -11,13 +11,13 @@ import pygame
 import pygame_menu
 
 #konstanty
-DISP_SIZE = (720,540) #velikost obrazovky
+DISP_SIZE = (1280,720) #velikost obrazovky
 BG_COLOR = (75,75,75) #barva pozadí
 GND_COLOR = (56, 25, 2) #barva hlíny
 OVERLAY_GND_COLOR = (22, 145, 0) #barva trávy nad hlínou
 FRAMERATE = 60 #snímková frekvence (FPS)
 GROUND_Y = DISP_SIZE[1]-200 #podlaha, na které bude postava stát a skákat
-JUMP_HEIGHT = 140  # výška skoku
+JUMP_HEIGHT = 160  # výška skoku
 GRAVITY = 1.75  # gravitace
 
 score = 0
@@ -71,7 +71,7 @@ def main():
             superChargeBtnRect = pygame.Rect(DISP_SIZE[0]-140,DISP_SIZE[1]-140, 100,80)
 
             shieldX, shieldY = -1000,-1000
-            cubeX = DISP_SIZE[0]//3
+            cubeX = DISP_SIZE[0]//2-32
             cubeY = GROUND_Y/1.5
 
             cubeVelocity = 0
@@ -157,14 +157,7 @@ def main():
                   
                   
                   #zobrazení všech elementů na obrazovku
-                  if score//600 == 0:
-                        sky = disp.blit(skyImages[0], (0,0)) #pozadí
-                  if score//600== 1:
-                        sky = disp.blit(skyImages[1], (0,0))
-                  if score//600 == 2:
-                        sky = disp.blit(skyImages[2], (0,0))
-                  if score//600 >= 3:
-                        sky = disp.blit(skyImages[3], (0,0))
+                  disp.fill('#00ccff') #pozadí
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
                   if not charged:
@@ -241,20 +234,20 @@ def main():
             if score > 3000:
                   spawnNum = 2
             if spawnPos == 0:
-                  obstRect = pygame.Rect(720//3, -50, 50, 50)
+                  obstRect = pygame.Rect(DISP_SIZE[0]//2-32, -50, 50, 50)
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'top'}])
             elif spawnPos == 1:
                   
-                  obstRect = pygame.Rect(-100, 340, 50, 50)
+                  obstRect = pygame.Rect(-50, GROUND_Y, 50, 50)
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'left'}])
             elif spawnPos == 2:
                   if spawnNum != 2:
-                        obstRect = pygame.Rect(720, 340, 50, 50)
+                        obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
 
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'}])
                   else:
-                        obstRect = pygame.Rect(720, 340, 50, 50)
-                        obstRect2 = pygame.Rect(770, 340, 50, 50)
+                        obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
+                        obstRect2 = pygame.Rect(DISP_SIZE[0]+100, GROUND_Y, 50, 50)
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'},{'rect': obstRect2, 'speed': -10, 'type': 'right'}])
       
       #pohyb překážek
