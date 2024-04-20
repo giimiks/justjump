@@ -17,8 +17,8 @@ GND_COLOR = (56, 25, 2) #barva hlíny
 OVERLAY_GND_COLOR = (22, 145, 0) #barva trávy nad hlínou
 FRAMERATE = 60 #snímková frekvence (FPS)
 GROUND_Y = DISP_SIZE[1]-200 #podlaha, na které bude postava stát a skákat
-JUMP_HEIGHT = 160  # výška skoku
-GRAVITY = 1.75  # gravitace
+JUMP_HEIGHT = 180  # výška skoku
+GRAVITY = 1.6  # gravitace
 
 score = 0
 
@@ -33,6 +33,9 @@ def main():
 
       #načtení textur, příprava fontů
       virusImage = pygame.image.load('assets/virus.png')
+      shieldLeftImage = pygame.image.load('assets/shieldleft.png')
+      fakeVerticalImage =  pygame.image.load('assets/fakevertical.png')
+      verticalSpikeImage =  pygame.image.load('assets/verticalspike.png')
       skyImages = [pygame.image.load('assets/sky.png'),pygame.image.load('assets/sky2.png'),pygame.image.load('assets/sky3.png'),pygame.image.load('assets/sky4.png')]
       cubeImage = pygame.image.load('assets/cube.png')
       superchargedImage = pygame.image.load('assets/supercharged.png')
@@ -100,14 +103,14 @@ def main():
                         shieldX, shieldY = -1000,-1000 #hitbox štítu přesunu mimo obrazovku, aby nefungoval, i když není viditelný
                   if lastChargedTime + 0.75 < currentTime:
                         charged = False
-                  spawnRate = max(1,2-score/500) #výpočet lineárně zvyšujícího se spawnratu pro spawnování obstacles, aby hra byla progresivně těžší
+                  spawnRate = max(0.75,1.75-(score/1.5)) #výpočet lineárně zvyšujícího se spawnratu pro spawnování obstacles, aby hra byla progresivně těžší
 
                   if dt > spawnRate: #po uplynutí spawnrate času se spawne obstacle
                         lastSpawnTime = currentTime
                         spawnObstacle(obstacles, score)
                   
                   #pohyb překážek
-                  updateObstacles(obstacles, score)
+                  updateObstacles(obstacles, score, cubeX, cubeY)
 
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
@@ -176,16 +179,21 @@ def main():
                   #renderování překážek
                   for obstacle in obstacles:
                         #překážky se spawnují jedna za druhou, jsou ale dvojité překážky
-                        if not (type(obstacle) is list):
-                              disp.blit(pygame.transform.scale(virusImage, (64,64)), obstacle['rect'])
-                        else:
                               for ob in obstacle:
-                                    disp.blit(pygame.transform.scale(virusImage, (64,64)), ob['rect'])
+                                    if ob['type'] == 'faketop':
+                                          disp.blit(pygame.transform.scale(fakeVerticalImage, (64,64)), ob['rect'])
+                                    elif ob['type'] == 'top':
+                                          disp.blit(pygame.transform.scale(verticalSpikeImage, (64,64)), ob['rect'])
+                                    elif ob['type'] == 'shieldleft':
+                                          disp.blit(pygame.transform.scale(shieldLeftImage, (64,64)), ob['rect'])
+                                    else: disp.blit(pygame.transform.scale(virusImage, (64,64)), ob['rect'])
+
                   #render skóre
                   showsScore = scoreFont.render("Score: " + str(score), True, (255, 255, 255))
                   disp.blit(showsScore, (DISP_SIZE[0]/2, 50))
                   #kontrola kolize s překážkou a zaštítovatelnosti
                   shieldCheck = checkShield(shieldBlit, obstacles, shieldAble, shielded)
+                  shielded = shieldCheck[2]
                   shieldAble = shieldCheck[0]
                   superCharge+=shieldCheck[1]
                         
@@ -209,6 +217,7 @@ def main():
       def mainMenu():
             f = open('./assets/.sa', 'r')
             highScore = f.read()
+            f.close()
             menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=theme)
             menu.add.label('High Score')
             menu.add.label(highScore)
@@ -228,7 +237,7 @@ def main():
 
       #spawnování překážek
       def spawnObstacle(obstacles: list, score: int): #obstacles je dvoudimenzionální seznam objektů
-            spawnPos = randint(0,2) #0 zeshora, 1, zleva, 2 zprava
+            spawnPos = randint(0,4) #0 zeshora, 1, zleva, 2 zprava
             #počet překážek v z jedné strany
             spawnNum = 1
             if score > 3000:
@@ -249,28 +258,37 @@ def main():
                         obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
                         obstRect2 = pygame.Rect(DISP_SIZE[0]+100, GROUND_Y, 50, 50)
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'},{'rect': obstRect2, 'speed': -10, 'type': 'right'}])
-      
+            elif spawnPos == 3:
+                  obstRect = pygame.Rect(DISP_SIZE[0]//2-32, -50, 50, 50)
+                  obstacles.append([{'rect': obstRect, 'speed': 15, 'type': 'faketop'}]) 
+            elif spawnPos == 4:
+                  obstRect = pygame.Rect(-50, GROUND_Y, 50, 50)
+                  obstacles.append([{'rect': obstRect, 'speed': 15, 'type': 'shieldleft'}]) 
+
       #pohyb překážek
-      def updateObstacles(obstacles, score):
+      def updateObstacles(obstacles, score, cubeX, cubeY):
             for obstacle in obstacles:
                   if obstacle[0]['type'] == 'left':
-                        obstacle[0]['rect'].move_ip(obstacle[0]['speed']+score/1000, 0)
+                        obstacle[0]['rect'].move_ip(obstacle[0]['speed']+score/750,0)
+                  if obstacle[0]['type'] == 'shieldleft':
+                        obstacle[0]['rect'].move_ip(obstacle[0]['speed']+score/750, 0)
+                        obstacle[0]['rect'].top = cubeY
                   elif  obstacle[0]['type'] == 'right':
-                        obstacle[0]['rect'].move_ip(obstacle[0]['speed']-score/1000, 0)
+                        obstacle[0]['rect'].move_ip(obstacle[0]['speed']-score/750, 0)
                         if len(obstacle) == 2:
-                              obstacle[1]['rect'].move_ip(obstacle[0]['speed']-score/1000, 0)
-                  elif obstacle[0]['type'] == 'top':
-                        obstacle[0]['rect'].move_ip(0, obstacle[0]['speed']+score/1000)
-                  if (obstacle[0]['type'] == 'left' and  obstacle[0]['rect'].left > DISP_SIZE[0] )or (obstacle[0]['type'] == 'right' and obstacle[0]['rect'].left < 0) or obstacle[0]['rect'].top > 540:
+                              obstacle[1]['rect'].move_ip(obstacle[0]['speed']-score/750, 0)
+                  elif obstacle[0]['type'] == 'top' or obstacle[0]['type'] == 'faketop':
+                        obstacle[0]['rect'].move_ip(0, obstacle[0]['speed']+score/750)
+                  if ((obstacle[0]['type'] == 'left' and  obstacle[0]['rect'].left > DISP_SIZE[0] )or (obstacle[0]['type'] == 'right' and obstacle[0]['rect'].left < 0) or (obstacle[0]['type']=='top' and obstacle[0]['rect'].top > DISP_SIZE[1])):
                         if len(obstacle) == 2:
                               if obstacle[1]['rect'].left < 0:
                                     obstacles.remove(obstacle)
-                              else:
+                        else:
                                     obstacles.remove(obstacle)
 
       def checkCollision(player, obstacles, charged):
             for obstacle in obstacles:
-                  if player.colliderect(obstacle[0]['rect']) and not charged:
+                  if player.colliderect(obstacle[0]['rect']) and not charged and obstacle[0]['type'] != 'faketop':
                         deathMenu()
                   if len(obstacle) == 2:
                         if player.colliderect(obstacle[1]['rect']) and not charged:
@@ -278,10 +296,12 @@ def main():
 
       def checkShield(shield, obstacles, shieldable, shielded):
             for obstacle in obstacles:
-                  if obstacle[0]['type'] == 'top' and shield.colliderect(obstacle[0]['rect']) and shielded:
+                  if (obstacle[0]['type'] == 'top' or obstacle[0]['type'] == 'shieldleft') and shield.colliderect(obstacle[0]['rect']) and shielded:
                         obstacles.remove(obstacle)
-                        return (True,1)
-            return (shieldable,0)
+                        return (True,1, False)
+                  elif obstacle[0]['type'] == 'faketop' and shield.colliderect(obstacle[0]['rect']) and shielded:
+                        deathMenu()
+            return (shieldable,0, shielded)
 
       mainMenu()
 
