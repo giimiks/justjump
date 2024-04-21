@@ -3,6 +3,7 @@
 #Gymnázium Sokolov a KVC
 #Lukáš Rada 8.A 2023/2024
 #Vytvořeno v pythonu s knihovnou pygame
+#SFX od ZapSplat
 
 import random
 import time
@@ -22,6 +23,7 @@ JUMP_HEIGHT = 180  # výška skoku
 GRAVITY = 1.6  # gravitace
 
 score = 0
+muted = False
 
 #funkce main; pokud bych jinde importoval main.py, 
 #nespustí se mi hra znovu
@@ -30,8 +32,10 @@ def main():
       #základní setup hry
       pygame.init()
       pygame.font.init()
-      disp = pygame.display.set_mode(DISP_SIZE)
+      pygame.mixer.init()
 
+      disp = pygame.display.set_mode(DISP_SIZE)
+      
       #načtení textur, příprava fontů
       virusImages = [pygame.image.load('assets/virus.png'),pygame.image.load('assets/virus2.png'),pygame.image.load('assets/virus3.png'),pygame.image.load('assets/virus4.png')]
       shieldLeftImage = pygame.image.load('assets/shieldleft.png')
@@ -42,11 +46,23 @@ def main():
       shieldImage = pygame.image.load('assets/shield.png')
       chargeBtnImage = pygame.image.load('assets/chargebtn.png')
       shieldBtnImage = pygame.image.load('assets/shieldbtn.png')
+      exitBtnImage = pygame.image.load('assets/exit.png')
+      jumpBtnImage = pygame.image.load('assets/jump.png')
+
+      pygame.display.set_caption('Just Jump')
+      pygame.display.set_icon(cubeImage)
+
       scoreFont = pygame.font.SysFont('Arial', 30)
-      clouds = [pygame.image.load('assets/cloud1.png'),
-                pygame.image.load('assets/cloud2.png'),
-                pygame.image.load('assets/cloud3.png'),
-                pygame.image.load('assets/cloud4.png')]
+      landscapeImg = pygame.image.load('assets/landscape.png')
+      
+      jumpSound = pygame.mixer.Sound('assets/jump.mp3')
+      zapSound = pygame.mixer.Sound('assets/zap.mp3')
+      failSound = pygame.mixer.Sound('assets/fail.mp3')
+      deathSound = pygame.mixer.Sound('assets/death.mp3')
+      music = pygame.mixer.Sound('assets/music.wav')
+      menuMusic = pygame.mixer.Sound('assets/menumusic.wav')
+
+
 
       theme = pygame_menu.Theme(background_color=(0,170,210,255),
             title_background_color=(0,0,0,0),
@@ -54,12 +70,13 @@ def main():
             title_font_shadow=True,
             title_offset=(90,0),
             widget_alignment=pygame_menu.locals.ALIGN_CENTER,
-            widget_font=pygame.font.SysFont('Comic Sans MS', 40)
+            widget_font=pygame.font.SysFont('Comic Sans MS', 40),
             )
 
       
-
+      
       def game():
+            menuMusic.stop()
             global score
             score = 0
             
@@ -70,13 +87,13 @@ def main():
             clouds = []
             lastSpawnTime = time.time()
             spawnRate = 5
-            for _ in range(4):
-                  clouds.append(spawnCloud())
             #podlaha
             groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
             groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
             shieldBtnRect = pygame.Rect(DISP_SIZE[0]//2-160,DISP_SIZE[1]-140, 100,80)
             superChargeBtnRect = pygame.Rect(DISP_SIZE[0]//2+60,DISP_SIZE[1]-140, 100,80)
+            jumpBtnRect = pygame.Rect(DISP_SIZE[0]//2-60,DISP_SIZE[1]-140, 100,80)
+            exitBtnRect = pygame.Rect(DISP_SIZE[0]-140,DISP_SIZE[1]-96, 64,64)
 
             shieldX, shieldY = -1000,-1000
             cubeX = DISP_SIZE[0]//2-32
@@ -96,7 +113,7 @@ def main():
             charged = False
             lastChargedTime = 0
             chargesNeeded = 4
-
+            music.play(40000)
             #hlavní smyčka hry
             while running:
                   #skóre je jeden snímek hry
@@ -118,15 +135,12 @@ def main():
                   #pohyb překážek
                   updateObstacles(obstacles, score, cubeX, cubeY)
 
-                  if len(clouds) < 20 and random.random() < 0.5:
-                        clouds.append(spawnCloud())
-
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
                         if event.type == pygame.QUIT:
                               running = False
                         #kontrola stisknutí a držení levého tlačítka na myši
-                        if event.type == pygame.MOUSEBUTTONDOWN and not shieldBtnRect.collidepoint(pygame.mouse.get_pos()):
+                        if event.type == pygame.MOUSEBUTTONDOWN and not shieldBtnRect.collidepoint(pygame.mouse.get_pos()) and not superChargeBtnRect.collidepoint(pygame.mouse.get_pos()) and jumpBtnRect.collidepoint(pygame.mouse.get_pos()):
                                           held = True
                         elif event.type == pygame.MOUSEBUTTONUP:
                                     #funkcionalita šítu
@@ -140,7 +154,11 @@ def main():
                                                 lastChargedTime = currentTime
                                                 charged = True
                                                 superCharge = 0
-                                    held = False
+                                    elif jumpBtnRect.collidepoint(pygame.mouse.get_pos()):
+                                          held = False
+                                    elif exitBtnRect.collidepoint(pygame.mouse.get_pos()):
+                                          music.stop()
+                                          mainMenu()
                         #stisk shield tlačítka na klávesnici pro debug
                         elif pygame.key.get_pressed()[pygame.K_e]:
                               if not shielded and shieldAble:
@@ -156,6 +174,7 @@ def main():
                               mainMenu()
                   #pokud hráč není ve vzduchu a levé tlačítko je stisknuto/podrženo, postava vyskočí a sníží svou vertikální rychlost
                   if not jumping and cubeY == GROUND_Y and held:
+                        jumpSound.play()
                         jumping = True
                         cubeVelocity = -20
                   if jumping:
@@ -172,11 +191,12 @@ def main():
                   
                   
                   #zobrazení všech elementů na obrazovku
-                  disp.fill('#00ccff') #pozadí
-                  drawClouds(disp, clouds)
+                  #pozadí
+                  #disp.fill('#00ccff') 
+                  disp.blit(landscapeImg,(0,0))
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
-                  
+                  jumpBtn = disp.blit(jumpBtnImage, jumpBtnRect)
                   if not charged:
                         cube = disp.blit(pygame.transform.scale(cubeImage, (64, cubeHeight)), (cubeX,cubeY))
                          #hráčova postava
@@ -204,14 +224,15 @@ def main():
 
                   #render skóre
                   showsScore = scoreFont.render("Score: " + str(score), True, (255, 255, 255))
-                  disp.blit(showsScore, (DISP_SIZE[0]/2, 50))
+                  disp.blit(showsScore, (DISP_SIZE[0]//2-64, DISP_SIZE[1]-50))
+                  exitText = scoreFont.render("Exit", True, (255, 255, 255))
+                  exitBtn = disp.blit(exitBtnImage, exitBtnRect)
+                  disp.blit(exitText, (DISP_SIZE[0]-200,DISP_SIZE[1]-72))
                   #kontrola kolize s překážkou a zaštítovatelnosti
                   shieldCheck = checkShield(shieldBlit, obstacles, shieldAble, shielded)
                   shielded = shieldCheck[2]
                   shieldAble = shieldCheck[0]
-                  superCharge+=shieldCheck[1]
-                  moveClouds(clouds)
-                  drawClouds(disp, clouds)    
+                  superCharge+=shieldCheck[1]   
                   checkCollision(cube, obstacles, charged)
                   pygame.display.update()
                   gameClock.tick(FRAMERATE)
@@ -234,8 +255,11 @@ def main():
             f.seek(0)
             f.write('0')
             f.truncate()
+            menuMusic.stop()
+            mainMenu()
       #hlavní menu vytvořené pomocí knihovny pygame_menu
       def mainMenu():
+            menuMusic.play(40000)
             f = open('./assets/.sa', 'r')
             highScore = f.read()
             f.close()
@@ -244,10 +268,14 @@ def main():
             menu.add.label(highScore)
             menu.add.button('Play', game)
             menu.add.button('Reset Score', resetScore)
-            menu.add.button('Quit', pygame_menu.events.EXIT)
+            menu.add.button('Mute/Unmute sounds', controlVolume)
+            menu.add.button('Quit', pygame_menu.events.EXIT),
             menu.mainloop(disp)
       
       def deathMenu():
+            music.stop()
+            failSound.play()
+            time.sleep(1)
             menu = pygame_menu.Menu('Just Jump', DISP_SIZE[0], DISP_SIZE[1], theme=theme)
             menu.add.label(f'You died!')
             menu.add.label(f'Score: {score}')
@@ -270,16 +298,16 @@ def main():
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'top'}])
             elif spawnPos == 1:
                   
-                  obstRect = pygame.Rect(-50, GROUND_Y, 50, 50)
+                  obstRect = pygame.Rect(-50, GROUND_Y, 40, 40)
                   obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'left', 'img': virusImages[virusSeed]}])
             elif spawnPos == 2:
                   if spawnNum != 2:
-                        obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
+                        obstRect = pygame.Rect(DISP_SIZE[0]+40, GROUND_Y, 40, 40)
 
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]}])
                   else:
-                        obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
-                        obstRect2 = pygame.Rect(DISP_SIZE[0]+100, GROUND_Y, 50, 50)
+                        obstRect = pygame.Rect(DISP_SIZE[0]+40, GROUND_Y, 40, 40)
+                        obstRect2 = pygame.Rect(DISP_SIZE[0]+80, GROUND_Y, 40, 40)
                         obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]},{'rect': obstRect2, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]}])
             elif spawnPos == 3:
                   obstRect = pygame.Rect(DISP_SIZE[0]//2-32, -50, 50, 50)
@@ -312,45 +340,42 @@ def main():
       def checkCollision(player, obstacles, charged):
             for obstacle in obstacles:
                   if player.colliderect(obstacle[0]['rect']) and not charged and obstacle[0]['type'] != 'faketop':
+                        deathSound.play()
                         deathMenu()
                   if len(obstacle) == 2:
                         if player.colliderect(obstacle[1]['rect']) and not charged:
+                              deathSound.play()
                               deathMenu()
 
       def checkShield(shield, obstacles, shieldable, shielded):
             for obstacle in obstacles:
                   if (obstacle[0]['type'] == 'top' or obstacle[0]['type'] == 'shieldleft') and shield.colliderect(obstacle[0]['rect']) and shielded:
                         obstacles.remove(obstacle)
+                        zapSound.play()
                         return (True,1, False)
                   elif obstacle[0]['type'] == 'faketop' and shield.colliderect(obstacle[0]['rect']) and shielded:
+                        deathSound.play()
                         deathMenu()
             return (shieldable,0, shielded)
       
-      def spawnCloud():
-            cloud = random.choice(clouds)
-            side = random.choice(['left', 'right'])
-            if side == 'left':
-                  cloudX = DISP_SIZE[0]+120
+      def controlVolume():
+            global muted
+            if not muted:
+                  failSound.set_volume(0)
+                  deathSound.set_volume(0)
+                  jumpSound.set_volume(0)
+                  music.set_volume(0)
+                  menuMusic.set_volume(0)
+                  zapSound.set_volume(0)
+                  muted = True
             else:
-                  cloudX = -120
-
-            cloudY = random.randint(50, DISP_SIZE[1] // 3) 
-
-            cloudSpeed = random.randint(1, 3) * (-1 if side == 'left' else 1)
-
-            return {'image': cloud, 'rect': cloud.get_rect(topleft=(cloudX, cloudY)), 'speed': cloudSpeed}
-      
-      def moveClouds(clouds):
-            for cloud in clouds:
-                  cloud['rect'].move_ip(cloud['speed'], 0)
-                  if cloud['rect'].left < -120 and cloud['speed']<0:
-                        clouds.remove(cloud)
-                  elif cloud['rect'].left > DISP_SIZE[0]+120 and cloud['speed']>0:
-                        clouds.remove(cloud)
-
-      def drawClouds(surface, clouds):
-            for cloud in clouds:
-                  surface.blit(cloud['image'], cloud['rect'])
+                  failSound.set_volume(1)
+                  deathSound.set_volume(1)
+                  jumpSound.set_volume(1)
+                  music.set_volume(1)
+                  menuMusic.set_volume(1)
+                  zapSound.set_volume(1)
+                  muted = False
 
       mainMenu()
 
