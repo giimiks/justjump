@@ -4,6 +4,7 @@
 #Lukáš Rada 8.A 2023/2024
 #Vytvořeno v pythonu s knihovnou pygame
 
+import random
 import time
 from random import randint
 
@@ -36,14 +37,16 @@ def main():
       shieldLeftImage = pygame.image.load('assets/shieldleft.png')
       fakeVerticalImage =  pygame.image.load('assets/fakevertical.png')
       verticalSpikeImage =  pygame.image.load('assets/verticalspike.png')
-      skyImages = [pygame.image.load('assets/sky.png'),pygame.image.load('assets/sky2.png'),pygame.image.load('assets/sky3.png'),pygame.image.load('assets/sky4.png')]
       cubeImage = pygame.image.load('assets/cube.png')
       superchargedImage = pygame.image.load('assets/supercharged.png')
       shieldImage = pygame.image.load('assets/shield.png')
       chargeBtnImage = pygame.image.load('assets/chargebtn.png')
       shieldBtnImage = pygame.image.load('assets/shieldbtn.png')
       scoreFont = pygame.font.SysFont('Arial', 30)
-      
+      clouds = [pygame.image.load('assets/cloud1.png'),
+                pygame.image.load('assets/cloud2.png'),
+                pygame.image.load('assets/cloud3.png'),
+                pygame.image.load('assets/cloud4.png')]
 
       theme = pygame_menu.Theme(background_color=(0,170,210,255),
             title_background_color=(0,0,0,0),
@@ -64,18 +67,21 @@ def main():
 
             #proměnné pro překážky
             obstacles = [] #seznam překážek
+            clouds = []
             lastSpawnTime = time.time()
             spawnRate = 5
-      
+            for _ in range(4):
+                  clouds.append(spawnCloud())
             #podlaha
             groundRect = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],160)
             groundOverlay = pygame.Rect(0,DISP_SIZE[1]-160,DISP_SIZE[0],60)
-            shieldBtnRect = pygame.Rect(40,DISP_SIZE[1]-140, 100,80)
-            superChargeBtnRect = pygame.Rect(DISP_SIZE[0]-140,DISP_SIZE[1]-140, 100,80)
+            shieldBtnRect = pygame.Rect(DISP_SIZE[0]//2-160,DISP_SIZE[1]-140, 100,80)
+            superChargeBtnRect = pygame.Rect(DISP_SIZE[0]//2+60,DISP_SIZE[1]-140, 100,80)
 
             shieldX, shieldY = -1000,-1000
             cubeX = DISP_SIZE[0]//2-32
             cubeY = GROUND_Y/1.5
+            cubeHeight = 64
 
             cubeVelocity = 0
             jumping = True
@@ -111,6 +117,9 @@ def main():
                   
                   #pohyb překážek
                   updateObstacles(obstacles, score, cubeX, cubeY)
+
+                  if len(clouds) < 20 and random.random() < 0.5:
+                        clouds.append(spawnCloud())
 
                   #hra projde každý event při jedné herní smyčce
                   for event in pygame.event.get():
@@ -150,31 +159,36 @@ def main():
                         jumping = True
                         cubeVelocity = -20
                   if jumping:
+                        cubeHeight = int(64*0.8)
                         cubeY += cubeVelocity
                         cubeVelocity += GRAVITY
                         #pokud se postava dotýká země, postava se nenachází ve vzduchu a vertikální rychlost je vynulována
                         if cubeY >= GROUND_Y:
                               cubeY = GROUND_Y
                               jumping = False
-                              cubeVelocity = 0    
+                              cubeVelocity = 0
+                  else:
+                        cubeHeight = 64    
                   
                   
                   #zobrazení všech elementů na obrazovku
                   disp.fill('#00ccff') #pozadí
+                  drawClouds(disp, clouds)
                   pygame.draw.rect(disp, GND_COLOR, groundRect) #hlína
                   pygame.draw.rect(disp, OVERLAY_GND_COLOR, groundOverlay) #tráva
+                  
                   if not charged:
-                        cube = disp.blit(cubeImage, (cubeX,cubeY))
+                        cube = disp.blit(pygame.transform.scale(cubeImage, (64, cubeHeight)), (cubeX,cubeY))
                          #hráčova postava
                   else: 
-                        cube = disp.blit(superchargedImage, (cubeX,cubeY))
+                        cube = disp.blit(pygame.transform.scale(superchargedImage, (64, cubeHeight)), (cubeX,cubeY))
                   if superCharge >= chargesNeeded:
-                        pygame.draw.rect(disp, (0,0,255), superChargeBtnRect)
+                        disp.blit(chargeBtnImage, superChargeBtnRect)
                   if shielded: 
                         shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (shieldX,shieldY)) #štít
                   else:
                         if shieldAble and not charged: #pokud je postava zaštítitelná, štít se přesune mimo obrazovku a tlačítko pro použití štítu se vyrenderuje
-                              pygame.draw.rect(disp, (240,0,0), shieldBtnRect)
+                              shieldBtn = disp.blit(shieldBtnImage, shieldBtnRect)
                               shieldBlit = disp.blit(pygame.transform.scale(shieldImage, (96,96)), (-10000,-10000))
                   #renderování překážek
                   for obstacle in obstacles:
@@ -196,16 +210,17 @@ def main():
                   shielded = shieldCheck[2]
                   shieldAble = shieldCheck[0]
                   superCharge+=shieldCheck[1]
-                        
+                  moveClouds(clouds)
+                  drawClouds(disp, clouds)    
                   checkCollision(cube, obstacles, charged)
                   pygame.display.update()
                   gameClock.tick(FRAMERATE)
             pygame.quit()
 
       def saveScore():
-            f = open('./assets/.sa', 'a+')
-            savedScore = int(f.read()) if f.read() != '' else 0
-            if savedScore < score:
+            f = open('./assets/.sa', 'r')
+            savedScore = f.read()
+            if int(savedScore) < score:
                   f.close()
                   f = open('./assets/.sa', 'w')
                   f.seek(0)
@@ -213,6 +228,12 @@ def main():
                   f.truncate()
             f.close()
             mainMenu()
+
+      def resetScore():
+            f = open('./assets/.sa', 'w')
+            f.seek(0)
+            f.write('0')
+            f.truncate()
       #hlavní menu vytvořené pomocí knihovny pygame_menu
       def mainMenu():
             f = open('./assets/.sa', 'r')
@@ -222,6 +243,7 @@ def main():
             menu.add.label('High Score')
             menu.add.label(highScore)
             menu.add.button('Play', game)
+            menu.add.button('Reset Score', resetScore)
             menu.add.button('Quit', pygame_menu.events.EXIT)
             menu.mainloop(disp)
       
@@ -302,6 +324,32 @@ def main():
                   elif obstacle[0]['type'] == 'faketop' and shield.colliderect(obstacle[0]['rect']) and shielded:
                         deathMenu()
             return (shieldable,0, shielded)
+      
+      def spawnCloud():
+            cloud = random.choice(clouds)
+            side = random.choice(['left', 'right'])
+            if side == 'left':
+                  cloudX = DISP_SIZE[0]+120
+            else:
+                  cloudX = -120
+
+            cloudY = random.randint(50, DISP_SIZE[1] // 3) 
+
+            cloudSpeed = random.randint(1, 3) * (-1 if side == 'left' else 1)
+
+            return {'image': cloud, 'rect': cloud.get_rect(topleft=(cloudX, cloudY)), 'speed': cloudSpeed}
+      
+      def moveClouds(clouds):
+            for cloud in clouds:
+                  cloud['rect'].move_ip(cloud['speed'], 0)
+                  if cloud['rect'].left < 0 and cloud['speed']<0:
+                        clouds.remove(cloud)
+                  elif cloud['rect'].left > DISP_SIZE[0] and cloud['speed']>0:
+                        clouds.remove(cloud)
+
+      def drawClouds(surface, clouds):
+            for cloud in clouds:
+                  surface.blit(cloud['image'], cloud['rect'])
 
       mainMenu()
 
