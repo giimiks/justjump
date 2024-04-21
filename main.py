@@ -33,7 +33,7 @@ def main():
       disp = pygame.display.set_mode(DISP_SIZE)
 
       #načtení textur, příprava fontů
-      virusImage = pygame.image.load('assets/virus.png')
+      virusImages = [pygame.image.load('assets/virus.png'),pygame.image.load('assets/virus2.png'),pygame.image.load('assets/virus3.png'),pygame.image.load('assets/virus4.png')]
       shieldLeftImage = pygame.image.load('assets/shieldleft.png')
       fakeVerticalImage =  pygame.image.load('assets/fakevertical.png')
       verticalSpikeImage =  pygame.image.load('assets/verticalspike.png')
@@ -200,7 +200,7 @@ def main():
                                           disp.blit(pygame.transform.scale(verticalSpikeImage, (64,64)), ob['rect'])
                                     elif ob['type'] == 'shieldleft':
                                           disp.blit(pygame.transform.scale(shieldLeftImage, (64,64)), ob['rect'])
-                                    else: disp.blit(pygame.transform.scale(virusImage, (64,64)), ob['rect'])
+                                    else: disp.blit(pygame.transform.scale(ob['img'], (64,64)), ob['rect'])
 
                   #render skóre
                   showsScore = scoreFont.render("Score: " + str(score), True, (255, 255, 255))
@@ -262,6 +262,7 @@ def main():
             spawnPos = randint(0,4) #0 zeshora, 1, zleva, 2 zprava
             #počet překážek v z jedné strany
             spawnNum = 1
+            virusSeed = randint(0,3)
             if score > 3000:
                   spawnNum = 2
             if spawnPos == 0:
@@ -270,16 +271,16 @@ def main():
             elif spawnPos == 1:
                   
                   obstRect = pygame.Rect(-50, GROUND_Y, 50, 50)
-                  obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'left'}])
+                  obstacles.append([{'rect': obstRect, 'speed': 10, 'type': 'left', 'img': virusImages[virusSeed]}])
             elif spawnPos == 2:
                   if spawnNum != 2:
                         obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
 
-                        obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'}])
+                        obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]}])
                   else:
                         obstRect = pygame.Rect(DISP_SIZE[0]+50, GROUND_Y, 50, 50)
                         obstRect2 = pygame.Rect(DISP_SIZE[0]+100, GROUND_Y, 50, 50)
-                        obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right'},{'rect': obstRect2, 'speed': -10, 'type': 'right'}])
+                        obstacles.append([{'rect': obstRect, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]},{'rect': obstRect2, 'speed': -10, 'type': 'right', 'img': virusImages[virusSeed]}])
             elif spawnPos == 3:
                   obstRect = pygame.Rect(DISP_SIZE[0]//2-32, -50, 50, 50)
                   obstacles.append([{'rect': obstRect, 'speed': 15, 'type': 'faketop'}]) 
@@ -342,9 +343,9 @@ def main():
       def moveClouds(clouds):
             for cloud in clouds:
                   cloud['rect'].move_ip(cloud['speed'], 0)
-                  if cloud['rect'].left < 0 and cloud['speed']<0:
+                  if cloud['rect'].left < -120 and cloud['speed']<0:
                         clouds.remove(cloud)
-                  elif cloud['rect'].left > DISP_SIZE[0] and cloud['speed']>0:
+                  elif cloud['rect'].left > DISP_SIZE[0]+120 and cloud['speed']>0:
                         clouds.remove(cloud)
 
       def drawClouds(surface, clouds):
